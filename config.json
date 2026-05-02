@@ -1,0 +1,26 @@
+{
+  "school_url": "https://www.hsps.tp.edu.tw",
+  "allowed_extensions": [
+    ".odt",
+    ".ods",
+    ".odp",
+    ".pdf",
+    ".jpg",
+    ".png"
+  ],
+  "categories": [
+    "宣導與公告",
+    "榮譽榜",
+    "競賽與活動資訊",
+    "研習進修"
+  ],
+  "xpath_templates": {
+    "announcement_button": "//div[contains(., '{category}')]//button[contains(text(), '新增公告')]",
+    "subject_title": "//input[@placeholder='輸入標題' or contains(@class, 'title')]",
+    "attachment_button": "//button[contains(text(), '附件') or @aria-label='附件']",
+    "new_file_button": "//li[contains(text(), '新增檔案')]",
+    "upload_field": "//input[@type='file']",
+    "content_announcement": "//div[contains(@class, 'editor-content') or @contenteditable='true']",
+    "publish_button": "//button[contains(text(), '發布')]"
+  }
+}
