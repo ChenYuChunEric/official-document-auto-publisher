@@ -1,26 +1,28 @@
 {
-  "school_url": "https://www.hsps.tp.edu.tw",
-  "allowed_extensions": [
-    ".odt",
-    ".ods",
-    ".odp",
-    ".pdf",
-    ".jpg",
-    ".png"
-  ],
-  "categories": [
-    "宣導與公告",
-    "榮譽榜",
-    "競賽與活動資訊",
-    "研習進修"
-  ],
-  "xpath_templates": {
-    "announcement_button": "//div[contains(., '{category}')]//button[contains(text(), '新增公告')]",
-    "subject_title": "//input[@placeholder='輸入標題' or contains(@class, 'title')]",
-    "attachment_button": "//button[contains(text(), '附件') or @aria-label='附件']",
-    "new_file_button": "//li[contains(text(), '新增檔案')]",
-    "upload_field": "//input[@type='file']",
-    "content_announcement": "//div[contains(@class, 'editor-content') or @contenteditable='true']",
-    "publish_button": "//button[contains(text(), '發布')]"
-  }
+    "school_url": "https://www.hsps.tp.edu.tw",
+    "categories": [
+        "宣導與公告",
+        "榮譽榜",
+        "競賽與活動資訊",
+        "研習進修"
+    ],
+    "allowed_extensions": [
+        ".pdf",
+        ".jpg",
+        ".png",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx"
+    ],
+    "xpath_templates": {
+        "category_tab": "//a[contains(text(), '{category}')]",
+        "announcement_button": "(//*[contains(text(), '{category}')]/following::button[contains(text(), '新增公告')])[1]",
+        "subject_title": "(//*[contains(text(), '{category}')]/following::input[@placeholder='輸入標題' or contains(@class, 'title')])[1]",
+        "attachment_button": "(//*[contains(text(), '{category}')]/following::button[contains(text(), '附件') or @aria-label='附件'])[1]",
+        "new_file_button": "(//*[contains(text(), '{category}')]/following::li[contains(text(), '新增檔案')])[1]",
+        "upload_field": "(//*[contains(text(), '{category}')]/following::input[@type='file'])[{index}]",
+        "content_announcement": "(//*[contains(text(), '{category}')]/following::div[contains(@class, 'editor-content') or @contenteditable='true'])[1]",
+        "publish_button": "(//*[contains(text(), '{category}')]/following::button[contains(text(), '發布')])[1]"
+    }
 }

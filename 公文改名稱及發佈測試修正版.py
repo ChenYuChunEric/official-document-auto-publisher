@@ -13,6 +13,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
+import traceback
+import threading
+import requests
+import webbrowser
+
+VERSION = "1.0.1"
+GITHUB_REPO = "ChenYuChunEric/official-document-auto-publisher"
 
 # ================================================
 # 1. 讀取外部設定檔 config.json
@@ -21,9 +28,29 @@ CONFIG_FILE = "config.json"
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
-        print(f"❌ 找不到設定檔：{CONFIG_FILE}")
-        print("請確保設定檔與執行檔放在同一個資料夾下！")
-        sys.exit()
+        print(f"❌ 找不到設定檔：{CONFIG_FILE}，正在自動生成預設設定檔...")
+        default_config = {
+            "school_url": "https://www.hsps.tp.edu.tw",
+            "categories": ["宣導與公告", "榮譽榜", "競賽與活動資訊", "研習進修"],
+            "allowed_extensions": [".pdf", ".jpg", ".png", ".doc", ".docx", ".xls", ".xlsx"],
+            "xpath_templates": {
+                "category_tab": "//a[contains(text(), '{category}')]",
+                "announcement_button": "(//*[contains(text(), '{category}')]/following::button[contains(text(), '新增公告')])[1]",
+                "subject_title": "(//*[contains(text(), '{category}')]/following::input[@placeholder='輸入標題' or contains(@class, 'title')])[1]",
+                "attachment_button": "(//*[contains(text(), '{category}')]/following::button[contains(text(), '附件') or @aria-label='附件'])[1]",
+                "new_file_button": "(//*[contains(text(), '{category}')]/following::li[contains(text(), '新增檔案')])[1]",
+                "upload_field": "(//*[contains(text(), '{category}')]/following::input[@type='file'])[{index}]",
+                "content_announcement": "(//*[contains(text(), '{category}')]/following::div[contains(@class, 'editor-content') or @contenteditable='true'])[1]",
+                "publish_button": "(//*[contains(text(), '{category}')]/following::button[contains(text(), '發布')])[1]"
+            }
+        }
+        try:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(default_config, f, ensure_ascii=False, indent=4)
+            print(f"✅ 已成功生成 {CONFIG_FILE} 預設設定！")
+        except Exception as e:
+            print(f"❌ 建立 {CONFIG_FILE} 失敗：{e}")
+        return default_config
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -44,6 +71,40 @@ if not categories:
 # ================================================
 # 2. 其他輔助函式
 # ================================================
+
+def check_for_updates():
+    if not GITHUB_REPO:
+        return
+
+    print(f"[INFO] 正在檢查 {GITHUB_REPO} 是否有新版本...")
+    api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+    try:
+        r = requests.get(api_url, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            latest_version = data.get("tag_name", "").lstrip("v")
+            current_version = VERSION.lstrip("v")
+            
+            if latest_version and latest_version != current_version:
+                print(f"[INFO] 發現新版本: v{latest_version} (目前版本: v{current_version})")
+                release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases/latest")
+                
+                def show_popup():
+                    root = tk.Tk()
+                    root.withdraw()
+                    root.attributes('-topmost', True)
+                    result = messagebox.askyesno("更新通知", f"發現新版本 v{latest_version} (目前: v{current_version})\n\n是否前往下載？")
+                    if result:
+                        webbrowser.open(release_url)
+                    root.destroy()
+                
+                threading.Thread(target=show_popup, daemon=True).start()
+            else:
+                print(f"[INFO] 目前已是最新版本 (v{current_version})。")
+        else:
+            print("[DEBUG] 無法取得最新版本資訊，可能尚未發布 Release。")
+    except Exception as e:
+        print(f"[WARN] 檢查更新時發生網路或 API 錯誤: {e}")
 
 def confirm_login():
     """彈出視窗讓使用者確認已於網頁輸入帳密"""
@@ -282,6 +343,9 @@ def test_web_login():
     global driver
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_experimental_option("detach", True)
+    # 隱藏無關的系統日誌 (DEPRECATED_ENDPOINT 等)
+    chrome_options.add_argument("--log-level=3")
+    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
     driver = webdriver.Chrome(options=chrome_options)
     driver.get(school_url)
     try:
@@ -302,106 +366,118 @@ def test_web_login():
         print(f"⚠️ 測試失敗，錯誤：{e}")
 
 # ================================================
-# 6. 發布公告流程 (支援多檔案與動態 XPath)
+# 6. 發布公告流程 (智慧容器通用版)
 # ================================================
 def publish_announcements(cases):
-    for case in cases:
+    total = len(cases)
+    print(f"\n📢 準備發布 {total} 篇公告...")
+
+    for idx, case in enumerate(cases, 1):
         section = case["section"]
         title = case["title"]
         content = case["content"]
         folder_path = case.get("folder_path", "")
         
-        # 輔助函式：替換樣板中的 {category} 為實際區塊名稱
-        def get_xpath(key):
-            template = xpath_templates.get(key, "")
-            return template.replace("{category}", section)
+        print(f"\n🚀 [{idx}/{total}] 正在處理分類：【{section}】")
+        print(f"   主旨：{title}")
 
-        print(f"開始發布 [{section}] 公告，主旨：{title}")
         try:
-            # 1. 點選「新增公告」按鈕
-            ann_btn = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, get_xpath("announcement_button")))
-            )
-            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", ann_btn)
-            time.sleep(0.5)
-            driver.execute_script("arguments[0].click();", ann_btn)
+            # --- 0. 關鍵修正：確保回到管理首頁 ---
+            # 避免上一篇發布後停留在跳轉頁面，導致這一篇找不到區塊
+            driver.get(school_url)
+            time.sleep(3) 
+
+            # --- 1. 智慧鎖定該分類的「容器區塊」 ---
+            print(f"   🔍 正在定位區塊...")
+            section_container = None
+            
+            # 找尋分類標題：排除公告列表內的連結
+            xpath_anchor = f"//*[(self::h1 or self::h2 or self::h3 or self::h4 or self::span or self::div) and not(ancestor::a) and not(ancestor::table) and not(ancestor::li) and (text()='{section}' or .='{section}')]"
+            anchors = [el for el in driver.find_elements(By.XPATH, xpath_anchor) if el.is_displayed()]
+            
+            if not anchors:
+                xpath_anchor_fallback = f"//*[(self::h1 or self::h2 or self::h3 or self::h4) and contains(., '{section}')]"
+                anchors = [el for el in driver.find_elements(By.XPATH, xpath_anchor_fallback) if el.is_displayed()]
+
+            for anchor in anchors:
+                curr = anchor
+                for _ in range(6):
+                    try:
+                        curr = curr.find_element(By.XPATH, "..")
+                        if curr.find_elements(By.XPATH, ".//button[contains(text(), '新增公告')]"):
+                            section_container = curr
+                            break
+                    except:
+                        break
+                if section_container: break
+
+            if not section_container:
+                print(f"   ❌ 找不到 [{section}] 容器，跳過此篇。")
+                continue
+
+            # --- 2. 執行發布動作 (參考 14.py 穩定流程) ---
+            ann_btn = section_container.find_element(By.XPATH, ".//button[contains(text(), '新增公告')]")
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'auto'});", ann_btn)
+            time.sleep(1)
+            ann_btn.click()
             time.sleep(3)
             
-            # 2. 填入「主旨標題」
+            # 標題
             subj_field = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, get_xpath("subject_title")))
+                lambda d: section_container.find_element(By.XPATH, ".//input[not(@type='button' or @type='submit' or @type='checkbox')]")
             )
+            subj_field.click()
             subj_field.clear()
             subj_field.send_keys(title)
-            time.sleep(1)
             
-            # 3. 處理無限數量檔案上傳
+            # 附件
             if folder_path and os.path.isdir(folder_path):
-                # 過濾掉非檔案（例如子資料夾）
                 files = sorted([f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))])
-                file_count = len(files)
-            else:
-                files = []
-                file_count = 0
-            
-            if file_count == 0:
-                print("⚠️ 無檔案可上傳。")
-            else:
-                for i in range(file_count):
-                    file_path = os.path.join(folder_path, files[i])
-                    
-                    # 點選「附件」展開上傳選單
-                    attach_btn = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.XPATH, get_xpath("attachment_button")))
-                    )
-                    driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", attach_btn)
-                    time.sleep(0.5)
-                    driver.execute_script("arguments[0].click();", attach_btn)
-                    time.sleep(1)
-                    
-                    # 點選「新增檔案」以產生新的上傳 input
-                    newfile_btn = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.XPATH, get_xpath("new_file_button")))
-                    )
-                    driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", newfile_btn)
-                    time.sleep(0.5)
-                    driver.execute_script("arguments[0].click();", newfile_btn)
-                    time.sleep(1)
-                    
-                    # 找出網頁上所有的上傳欄位，並針對「最後一個」進行上傳
-                    upload_inputs = driver.find_elements(By.XPATH, get_xpath("upload_field"))
-                    if upload_inputs:
-                        current_upload_input = upload_inputs[-1]
-                        current_upload_input.send_keys(file_path)
-                        print(f"✅ 上傳第 {i+1}/{file_count} 檔案：{file_path}")
+                if files:
+                    for i, fname in enumerate(files):
+                        attach_btn = section_container.find_element(By.XPATH, ".//button[contains(., '附件') or contains(@class, 'attach')]")
+                        attach_btn.click()
                         time.sleep(1)
-                    else:
-                        print("⚠️ 找不到上傳檔案的 input 欄位！")
+                        newfile_btn = section_container.find_element(By.XPATH, ".//li[contains(., '新增檔案')]")
+                        newfile_btn.click()
+                        time.sleep(1)
+                        file_path = os.path.abspath(os.path.join(folder_path, fname))
+                        inputs = section_container.find_elements(By.XPATH, ".//input[@type='file']")
+                        if len(inputs) > i:
+                            inputs[i].send_keys(file_path)
+                            print(f"   📎 附件已上傳: {fname}")
+                        time.sleep(1)
             
-            # 5. 填入「公告內容」
-            content_field = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, get_xpath("content_announcement")))
-            )
-            content_field.clear()
-            content_field.send_keys(content)
+            # 內文 (ActionChains)
+            content_field = section_container.find_element(By.XPATH, ".//div[@contenteditable='true' or contains(@class, 'editor')]")
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'auto'});", content_field)
+            time.sleep(0.5)
+            from selenium.webdriver.common.action_chains import ActionChains
+            ActionChains(driver).move_to_element(content_field).click().send_keys(content).perform()
             time.sleep(1)
             
-            # 6. 點選「發布」按鈕
-            publish_btn = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, get_xpath("publish_button")))
-            )
-            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", publish_btn)
-            time.sleep(0.5)
-            driver.execute_script("arguments[0].click();", publish_btn)
-            print(f"✅ [{section}] 公告發布成功！")
-            time.sleep(2)
+            # 發布
+            publish_btn = section_container.find_element(By.XPATH, ".//button[contains(., '發') and contains(., '布')]")
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'auto'});", publish_btn)
+            time.sleep(1)
+            try: publish_btn.click()
+            except: driver.execute_script("arguments[0].click();", publish_btn)
+            
+            print(f"   ✅ [{section}] 發布指令成功！")
+            time.sleep(5) # 確保發布流程跑完
+
         except Exception as e:
-            print(f"⚠️ [{section}] 公告發布時發生錯誤，可能是 XPath 找不到元素，請檢查 config.json 裡的設定檔：\n錯誤詳情: {e}")
+            print(f"   ⚠️ [{section}] 發布中斷！原因: {e}")
+            traceback.print_exc()
+            time.sleep(2) # 錯誤後緩衝，準備下一篇
 
 # ================================================
 # 主程式
 # ================================================
-if __name__ == '__main__':
+def main():
+    print(f"🚀 程式啟動 (版本: v{VERSION})")
+    check_for_updates()
+    
     processed_cases = process_documents()
     selected_cases = select_announcement_section(processed_cases)
     if selected_cases:
@@ -413,3 +489,12 @@ if __name__ == '__main__':
     print("所有操作完成！✅")
     input("請按 Enter 鍵以結束...")
     sys.exit()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print(f"\n[CRITICAL ERROR] 程式發生未預期的嚴重錯誤: {e}")
+        traceback.print_exc()
+        input("\n按 Enter 鍵結束程式...")
+        sys.exit(1)
