@@ -1,0 +1,75 @@
+# 公文自動命名與發佈工具 (Official Document Auto-Publisher)
+
+這是一個專為學校及機關設計的自動化工具，旨在簡化「公文處理」與「網站公告發佈」的流程。透過本工具，您可以自動從公文壓縮檔中擷取資訊、重命名檔案，並自動將內容發佈至校園網站。
+
+## 🌟 主要功能
+
+- **自動解壓與識別**：自動解壓公文 ZIP 檔，並識別其中的正文 PDF 與附件。
+- **AI 資訊擷取**：利用 PyMuPDF 技術，自動從 PDF 正文中精準擷取「主旨」與「說明」內容。
+- **智慧命名系統**：根據公文主旨自動重新命名資料夾與檔案，並支援「西元年」或「民國年」日期前綴。
+- **自動化網頁發佈**：整合 Selenium 自動化工具，支援登入臺北市單一身分驗證 (SSO)，並自動將公文內容、附件填寫至網站公告系統。
+- **靈活配置**：透過 `config.json` 即可自定義學校網址、公告分類及網頁元素定位 (XPath)。
+- **版本更新檢查**：自動連線至 GitHub 檢查最新版本，確保工具維持在最優狀態。
+
+## 🛠️ 系統需求
+
+- Windows 作業系統 (建議)
+- Python 3.8 或以上版本
+- Google Chrome 瀏覽器 (用於網頁自動化)
+
+## 🚀 快速開始
+
+### 1. 取得專案
+```bash
+git clone https://github.com/ChenYuChunEric/official-document-auto-publisher.git
+cd official-document-auto-publisher
+```
+
+### 2. 環境設定
+建議使用虛擬環境以確保依賴項獨立：
+```powershell
+# 建立虛擬環境
+python -m venv venv
+
+# 啟動虛擬環境 (Windows)
+.\venv\Scripts\activate
+
+# 安裝所需套件
+pip install -r requirements.txt
+```
+
+### 3. 執行程式
+```powershell
+python "公文改名稱及發佈.py"
+```
+
+## ⚙️ 配置說明 (`config.json`)
+
+程式首次執行時會自動生成預設的 `config.json`，您可以根據需求修改：
+
+- `school_url`: 您的學校/單位網站首頁網址。
+- `categories`: 公告系統中的分類名稱 (例如：宣導與公告、榮譽榜)。
+- `allowed_extensions`: 允許上傳的附件副檔名清單。
+- `xpath_templates`: 針對不同網站架構的網頁元素定位設定。
+
+## 📦 打包為執行檔 (.exe)
+
+如果您希望在沒有 Python 環境的電腦上使用，可以使用 `PyInstaller` 進行打包：
+```powershell
+pip install pyinstaller
+pyinstaller --onefile --noconsole "公文改名稱及發佈.py"
+```
+
+## 📝 使用須知
+
+1. **手動登入**：為了安全性，程式在執行網頁自動化時會跳出提示，請在瀏覽器上手動完成身分驗證後，再點擊程式內的「確認登入」。
+2. **路徑選擇**：執行時需選擇「原始公文資料夾」與「輸出目標資料夾」。
+3. **附件限制**：僅會複製與上傳 `config.json` 中定義的允許檔案類型。
+
+## 🤝 貢獻與反饋
+
+如果您在使用過程中遇到任何問題，或有功能上的建議，歡迎透過 GitHub 提交 [Issue](https://github.com/ChenYuChunEric/official-document-auto-publisher/issues) 或 Pull Request。
+
+---
+**作者**: Eric Chen (ChenYuChunEric)  
+**專案連結**: [GitHub Repository](https://github.com/ChenYuChunEric/official-document-auto-publisher)
