@@ -7,7 +7,7 @@ import re
 import shutil
 import datetime
 import tkinter as tk
-from tkinter import filedialog, simpledialog, messagebox
+from tkinter import filedialog, messagebox
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -339,6 +339,8 @@ def select_announcement_section(processed_cases):
 # ================================================
 # 5. 網頁登入
 # ================================================
+driver = None
+
 def test_web_login():
     global driver
     chrome_options = webdriver.ChromeOptions()
@@ -407,9 +409,10 @@ def publish_announcements(cases):
                         if curr.find_elements(By.XPATH, ".//button[contains(text(), '新增公告')]"):
                             section_container = curr
                             break
-                    except:
+                    except Exception:
                         break
-                if section_container: break
+                if section_container:
+                    break
 
             if not section_container:
                 print(f"   ❌ 找不到 [{section}] 容器，跳過此篇。")
@@ -421,7 +424,7 @@ def publish_announcements(cases):
             time.sleep(1)
             try:
                 ann_btn.click()
-            except:
+            except Exception:
                 driver.execute_script("arguments[0].click();", ann_btn)
             time.sleep(3)
             
@@ -431,7 +434,7 @@ def publish_announcements(cases):
             )
             try:
                 subj_field.click()
-            except:
+            except Exception:
                 driver.execute_script("arguments[0].click();", subj_field)
             subj_field.clear()
             subj_field.send_keys(title)
@@ -444,13 +447,13 @@ def publish_announcements(cases):
                         attach_btn = section_container.find_element(By.XPATH, ".//button[contains(., '附件') or contains(@class, 'attach')]")
                         try:
                             attach_btn.click()
-                        except:
+                        except Exception:
                             driver.execute_script("arguments[0].click();", attach_btn)
                         time.sleep(1)
                         newfile_btn = section_container.find_element(By.XPATH, ".//li[contains(., '新增檔案')]")
                         try:
                             newfile_btn.click()
-                        except:
+                        except Exception:
                             driver.execute_script("arguments[0].click();", newfile_btn)
                         time.sleep(1)
                         file_path = os.path.abspath(os.path.join(folder_path, fname))
@@ -460,28 +463,39 @@ def publish_announcements(cases):
                             print(f"   📎 附件已上傳: {fname}")
                         time.sleep(1)
             
-            # 內文 (回歸 14.py 的做法，使用原生的 send_keys 來觸發前端框架的偵測)
+            # 內文：優先使用 ActionChains 模擬真實滑鼠點擊與鍵盤輸入（最能完整觸發前端框架）
             content_field = section_container.find_element(By.XPATH, ".//div[@contenteditable='true' or contains(@class, 'editor')]")
             driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'auto'});", content_field)
             time.sleep(0.5)
             
-            # 先用 JS 強制對焦，確保游標在輸入框內
-            driver.execute_script("arguments[0].focus();", content_field)
             try:
                 content_field.clear()
-            except:
+            except Exception:
                 pass
                 
-            # 使用原生的 send_keys()，這能完整觸發網頁框架的鍵盤監聽事件，且通常不受視窗縮小影響
-            content_field.send_keys(content)
+            try:
+                from selenium.webdriver.common.action_chains import ActionChains
+                ActionChains(driver).move_to_element(content_field).click().send_keys(content).perform()
+            except Exception:
+                # 備案：如果視窗最小化導致 ActionChains 找不到元素 (ElementNotInteractable)
+                # 則改用 JS 強制寫入，並觸發 input/change 事件讓網頁框架偵測到變動
+                driver.execute_script("""
+                    var el = arguments[0];
+                    el.innerHTML = arguments[1];
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                    el.dispatchEvent(new Event('blur', { bubbles: true }));
+                """, content_field, content)
             time.sleep(1)
             
             # 發布
             publish_btn = section_container.find_element(By.XPATH, ".//button[contains(., '發') and contains(., '布')]")
             driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'auto'});", publish_btn)
             time.sleep(1)
-            try: publish_btn.click()
-            except: driver.execute_script("arguments[0].click();", publish_btn)
+            try:
+                publish_btn.click()
+            except Exception:
+                driver.execute_script("arguments[0].click();", publish_btn)
             
             print(f"   ✅ [{section}] 發布指令成功！")
             time.sleep(5) # 確保發布流程跑完

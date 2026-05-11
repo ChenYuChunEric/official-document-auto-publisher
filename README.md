@@ -7,7 +7,7 @@
 - **自動解壓與識別**：自動解壓公文 ZIP 檔，並識別其中的正文 PDF 與附件。
 - **AI 資訊擷取**：利用 PyMuPDF 技術，自動從 PDF 正文中精準擷取「主旨」與「說明」內容。
 - **智慧命名系統**：根據公文主旨自動重新命名資料夾與檔案，並支援「西元年」或「民國年」日期前綴。
-- **穩健自動化發佈**：整合 Selenium 與 JavaScript 底層驅動，**支援瀏覽器在縮小 (Minimized) 或無焦點狀態下穩定執行**，解決傳統自動化工具容易因視窗失焦而崩潰的問題。
+- **雙軌穩健自動化**：整合 Selenium `ActionChains` 與底層 `JavaScript` 事件驅動，**首創雙軌輸入機制**。確保在視窗正常狀態下使用模擬輸入，而在視窗縮小時自動切換為強制事件觸發，徹底解決發佈中斷或內容空白的問題。
 - **自動化網頁發佈**：支援登入臺北市單一身分驗證 (SSO)，並自動將公文內容、附件填寫至網站公告系統。
 - **靈活配置**：透過 `config.json` 即可自定義學校網址、公告分類及網頁元素定位 (XPath)。
 - **版本更新檢查**：自動連線至 GitHub 檢查最新版本，確保工具維持在最優狀態。
@@ -64,7 +64,7 @@ pyinstaller --onefile --noconsole --icon=icon.ico "公文改名稱及發佈.py"
 ## 📝 使用須知
 
 1. **手動登入**：為了安全性，程式在執行網頁自動化時會跳出提示，請在瀏覽器上手動完成身分驗證後，再點擊程式內的「確認登入」。
-2. **後台執行**：本版本已優化點擊邏輯，**登入後您可以將 Chrome 視窗縮到最小**，程式將持續在背景完成填寫與發佈作業。
+2. **後台作業優化**：本版本支援「隱身執行」，完成登入後您可以將視窗縮小，程式會透過雙軌機制確保背景發佈的成功率與內容完整性。
 3. **附件限制**：僅會複製與上傳 `config.json` 中定義的允許檔案類型。
 
 ## 🤝 貢獻與反饋
@@ -72,5 +72,5 @@ pyinstaller --onefile --noconsole --icon=icon.ico "公文改名稱及發佈.py"
 如果您在使用過程中遇到任何問題，或有功能上的建議，歡迎透過 GitHub 提交 [Issue](https://github.com/ChenYuChunEric/official-document-auto-publisher/issues) 或 Pull Request。
 
 ---
-**作者**: Eric Chen (ChenYuChunEric)  
+**作者**: Eric Chen (EricChenYuChun)  
 **專案連結**: [GitHub Repository](https://github.com/ChenYuChunEric/official-document-auto-publisher)
