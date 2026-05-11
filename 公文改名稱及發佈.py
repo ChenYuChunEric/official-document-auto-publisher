@@ -419,14 +419,20 @@ def publish_announcements(cases):
             ann_btn = section_container.find_element(By.XPATH, ".//button[contains(text(), '新增公告')]")
             driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'auto'});", ann_btn)
             time.sleep(1)
-            ann_btn.click()
+            try:
+                ann_btn.click()
+            except:
+                driver.execute_script("arguments[0].click();", ann_btn)
             time.sleep(3)
             
             # 標題
             subj_field = WebDriverWait(driver, 10).until(
                 lambda d: section_container.find_element(By.XPATH, ".//input[not(@type='button' or @type='submit' or @type='checkbox')]")
             )
-            subj_field.click()
+            try:
+                subj_field.click()
+            except:
+                driver.execute_script("arguments[0].click();", subj_field)
             subj_field.clear()
             subj_field.send_keys(title)
             
@@ -436,10 +442,16 @@ def publish_announcements(cases):
                 if files:
                     for i, fname in enumerate(files):
                         attach_btn = section_container.find_element(By.XPATH, ".//button[contains(., '附件') or contains(@class, 'attach')]")
-                        attach_btn.click()
+                        try:
+                            attach_btn.click()
+                        except:
+                            driver.execute_script("arguments[0].click();", attach_btn)
                         time.sleep(1)
                         newfile_btn = section_container.find_element(By.XPATH, ".//li[contains(., '新增檔案')]")
-                        newfile_btn.click()
+                        try:
+                            newfile_btn.click()
+                        except:
+                            driver.execute_script("arguments[0].click();", newfile_btn)
                         time.sleep(1)
                         file_path = os.path.abspath(os.path.join(folder_path, fname))
                         inputs = section_container.find_elements(By.XPATH, ".//input[@type='file']")
@@ -448,12 +460,20 @@ def publish_announcements(cases):
                             print(f"   📎 附件已上傳: {fname}")
                         time.sleep(1)
             
-            # 內文 (ActionChains)
+            # 內文 (回歸 14.py 的做法，使用原生的 send_keys 來觸發前端框架的偵測)
             content_field = section_container.find_element(By.XPATH, ".//div[@contenteditable='true' or contains(@class, 'editor')]")
             driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'auto'});", content_field)
             time.sleep(0.5)
-            from selenium.webdriver.common.action_chains import ActionChains
-            ActionChains(driver).move_to_element(content_field).click().send_keys(content).perform()
+            
+            # 先用 JS 強制對焦，確保游標在輸入框內
+            driver.execute_script("arguments[0].focus();", content_field)
+            try:
+                content_field.clear()
+            except:
+                pass
+                
+            # 使用原生的 send_keys()，這能完整觸發網頁框架的鍵盤監聽事件，且通常不受視窗縮小影響
+            content_field.send_keys(content)
             time.sleep(1)
             
             # 發布
