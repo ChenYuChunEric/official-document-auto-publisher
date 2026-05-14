@@ -2,6 +2,9 @@
 
 這是一個專為學校及機關設計的自動化工具，旨在簡化「公文處理」與「網站公告發佈」的流程。透過本工具，您可以自動從公文壓縮檔中擷取資訊、重命名檔案，並自動將內容發佈至校園網站。
 
+[![Watch the video](https://img.youtube.com/vi/ME-qyiVz6gM/0.jpg)](https://www.youtube.com/watch?v=ME-qyiVz6gM)
+
+
 ## 🌟 主要功能
 
 - **自動解壓與識別**：自動解壓公文 ZIP 檔，並識別其中的正文 PDF 與附件。
